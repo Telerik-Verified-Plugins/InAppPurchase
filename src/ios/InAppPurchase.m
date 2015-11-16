@@ -448,7 +448,11 @@ unsigned char* unbase64( const char* ascii, int len, int *flen )
             case SKPaymentTransactionStatePurchased:
                 state = @"PaymentTransactionStatePurchased";
                 transactionIdentifier = transaction.transactionIdentifier;
-                transactionReceipt = [[transaction transactionReceipt] cdv_base64EncodedString];
+                if ([transaction.transactionReceipt respondsToSelector:NSSelectorFromString(@"cdv_base64EncodedString")]) {
+                  transactionReceipt = [transaction.transactionReceipt performSelector:NSSelectorFromString(@"cdv_base64EncodedString")];
+                } else {
+                  transactionReceipt = [transaction.transactionReceipt performSelector:NSSelectorFromString(@"base64EncodedString")];
+                }
                 productId = transaction.payment.productIdentifier;
                 downloads = transaction.downloads;
                 canFinish = YES;
@@ -474,7 +478,11 @@ unsigned char* unbase64( const char* ascii, int len, int *flen )
                 transactionIdentifier = transaction.transactionIdentifier;
                 if (!transactionIdentifier)
                     transactionIdentifier = transaction.originalTransaction.transactionIdentifier;
-                transactionReceipt = [[transaction transactionReceipt] cdv_base64EncodedString];
+                if ([transaction.transactionReceipt respondsToSelector:NSSelectorFromString(@"cdv_base64EncodedString")]) {
+                  transactionReceipt = [transaction.transactionReceipt performSelector:NSSelectorFromString(@"cdv_base64EncodedString")];
+                } else {
+                  transactionReceipt = [transaction.transactionReceipt performSelector:NSSelectorFromString(@"base64EncodedString")];
+                }
                 productId = transaction.originalTransaction.payment.productIdentifier;
                 downloads = transaction.downloads;
                 canFinish = YES;
@@ -703,7 +711,13 @@ static NSString *rootAppleCA = @"MIIEuzCCA6OgAwIBAgIBAjANBgkqhkiG9w0BAQUFADBiMQs
         
         SKPaymentTransaction *transaction = download.transaction;
         NSString *transactionId = transaction.transactionIdentifier;
-        NSString *transactionReceipt = [[transaction transactionReceipt] cdv_base64EncodedString];
+        NSString *transactionReceipt;
+        if ([transaction.transactionReceipt respondsToSelector:NSSelectorFromString(@"cdv_base64EncodedString")]) {
+          transactionReceipt = [transaction.transactionReceipt performSelector:NSSelectorFromString(@"cdv_base64EncodedString")];
+        } else {
+          transactionReceipt = [transaction.transactionReceipt performSelector:NSSelectorFromString(@"base64EncodedString")];
+        }
+
         SKPayment *payment = transaction.payment;
         NSString *productId = payment.productIdentifier;
         
