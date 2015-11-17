@@ -13,7 +13,7 @@
 // Help create NSNull objects for nil items (since neither NSArray nor NSDictionary can store nil values).
 #define NILABLE(obj) ((obj) != nil ? (NSObject *)(obj) : (NSObject *)[NSNull null])
 
-static BOOL g_debugEnabled = YES;
+static BOOL g_debugEnabled = NO;
 static BOOL g_autoFinishEnabled = YES;
 
 #define DLog(fmt, ...) { \
@@ -498,9 +498,9 @@ unsigned char* unbase64( const char* ascii, int len, int *flen )
             [callbackArgs JSONSerialize]];
         // DLog(@"js: %@", js);
         [self.commandDelegate evalJs:js];
-        
-        if(downloads){
-            [[SKPaymentQueue defaultQueue] startDownloads:transaction.downloads];
+
+        if (downloads && [downloads count] > 0) {
+            [[SKPaymentQueue defaultQueue] startDownloads:downloads];
         }
         else if (g_autoFinishEnabled && canFinish) {
             [[SKPaymentQueue defaultQueue] finishTransaction:transaction];
