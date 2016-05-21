@@ -56,9 +56,13 @@ store.when("finished", function(product) {
 });
 
 function storekitFinish(product) {
-    if (product.type === store.CONSUMABLE) {
-        if (product.transaction.id)
+    if (product.type === store.CONSUMABLE || product.type === store.NON_RENEWING_SUBSCRIPTION) {
+        if (product.transaction && product.transaction.id) {
             storekit.finish(product.transaction.id);
+        }
+        else {
+            store.log.debug("ios -> error: unable to find transaction for " + product.id);
+        }
     }
     else if (product.transactions) {
         store.log.debug("ios -> finishing all " + product.transactions.length + " transactions for " + product.id);
@@ -213,6 +217,7 @@ function storekitLoaded(validProducts, invalidProductIds) {
             title: validProducts[i].title,
             price: validProducts[i].price,
             description: validProducts[i].description,
+            currency: validProducts[i].currency,
             state: store.VALID
         });
         p.trigger("loaded");

@@ -2,10 +2,13 @@ var store = {};
 
 store.verbosity = 0;
 
+store.sandbox = false;
+
 (function() {
     "use strict";
     store.FREE_SUBSCRIPTION = "free subscription";
     store.PAID_SUBSCRIPTION = "paid subscription";
+    store.NON_RENEWING_SUBSCRIPTION = "non renewing subscription";
     store.CONSUMABLE = "consumable";
     store.NON_CONSUMABLE = "non consumable";
     var ERROR_CODES_BASE = 6777e3;
@@ -62,7 +65,7 @@ store.verbosity = 0;
         this.id = options.id || null;
         this.alias = options.alias || options.id || null;
         var type = this.type = options.type || null;
-        if (type !== store.CONSUMABLE && type !== store.NON_CONSUMABLE && type !== store.PAID_SUBSCRIPTION && type !== store.FREE_SUBSCRIPTION) throw new TypeError("Invalid product type");
+        if (type !== store.CONSUMABLE && type !== store.NON_CONSUMABLE && type !== store.PAID_SUBSCRIPTION && type !== store.FREE_SUBSCRIPTION && type !== store.NON_RENEWING_SUBSCRIPTION) throw new TypeError("Invalid product type");
         this.state = options.state || "";
         this.title = options.title || options.localizedTitle || null;
         this.description = options.description || options.localizedDescription || null;
@@ -187,11 +190,19 @@ store.verbosity = 0;
     };
     store.error = function(cb, altCb) {
         var ret = cb;
-        if (cb instanceof store.Error) store.error.callbacks.trigger(cb); else if (cb.code && cb.message) store.error.callbacks.trigger(new store.Error(cb)); else if (typeof cb === "function") store.error.callbacks.push(cb); else if (typeof altCb === "function") {
+        if (cb instanceof store.Error) {
+            store.error.callbacks.trigger(cb);
+        } else if (typeof cb === "function") {
+            store.error.callbacks.push(cb);
+        } else if (typeof altCb === "function") {
             ret = function(err) {
                 if (err.code === cb) altCb();
             };
             store.error(ret);
+        } else if (cb.code && cb.message) {
+            store.error.callbacks.trigger(new store.Error(cb));
+        } else if (cb.code) {
+            store.error.callbacks.trigger(new store.Error(cb));
         }
         return ret;
     };
@@ -856,7 +867,7 @@ store.verbosity = 0;
         if (!initialized) init();
     });
     store.when("re-refreshed", function() {
-        iabGetPurchases();
+        store.iabGetPurchases();
     });
     var BILLING_RESPONSE_RESULT = {
         OK: 0,
@@ -915,23 +926,7 @@ store.verbosity = 0;
                 p.trigger("loaded");
             }
         }
-        iabGetPurchases();
-    }
-    function iabGetPurchases() {
-        store.inappbilling.getPurchases(function(purchases) {
-            if (purchases && purchases.length) {
-                for (var i = 0; i < purchases.length; ++i) {
-                    var purchase = purchases[i];
-                    var p = store.get(purchase.productId);
-                    if (!p) {
-                        store.log.warn("plugin -> user owns a non-registered product");
-                        continue;
-                    }
-                    store.setProductData(p, purchase);
-                }
-            }
-            store.ready(true);
-        }, function() {});
+        store.iabGetPurchases();
     }
     store.when("requested", function(product) {
         store.ready(function() {
@@ -1006,7 +1001,6 @@ store.verbosity = 0;
             product.license = {
                 type: "windows-store-license",
                 expirationDate: license.expirationDate,
-                isConsumable: license.isConsumable,
                 isActive: license.isActive
             };
         } else {
@@ -1045,6 +1039,22 @@ store.verbosity = 0;
                 product.set("state", store.VALID);
             }
         }
+    };
+    store.iabGetPurchases = function() {
+        store.inappbilling.getPurchases(function(purchases) {
+            if (purchases && purchases.length) {
+                for (var i = 0; i < purchases.length; ++i) {
+                    var purchase = purchases[i];
+                    var p = store.get(purchase.license.productId);
+                    if (!p) {
+                        store.log.warn("plugin -> user owns a non-registered product");
+                        continue;
+                    }
+                    store.setProductData(p, purchase);
+                }
+            }
+            store.ready(true);
+        }, function() {});
     };
 })();
 
