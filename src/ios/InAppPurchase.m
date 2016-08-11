@@ -13,12 +13,15 @@
 // Help create NSNull objects for nil items (since neither NSArray nor NSDictionary can store nil values).
 #define NILABLE(obj) ((obj) != nil ? (NSObject *)(obj) : (NSObject *)[NSNull null])
 
+static BOOL g_initialized = NO;
 static BOOL g_debugEnabled = NO;
 static BOOL g_autoFinishEnabled = YES;
 
 #define DLog(fmt, ...) { \
     if (g_debugEnabled) \
         NSLog((@"InAppPurchase[objc]: " fmt), ##__VA_ARGS__); \
+    else if (!g_initialized) \
+        NSLog((@"InAppPurchase[objc] (before init): " fmt), ##__VA_ARGS__); \
 }
 
 #define ERROR_CODES_BASE 6777000
@@ -277,6 +280,7 @@ unsigned char* unbase64( const char* ascii, int len, int *flen )
 
 -(void) setup: (CDVInvokedUrlCommand*)command {
     CDVPluginResult* pluginResult = nil;
+    g_initialized = YES;
 
     if (![SKPaymentQueue canMakePayments]) {
         DLog(@"Cant make payments, plugin disabled.");
@@ -310,7 +314,7 @@ unsigned char* unbase64( const char* ascii, int len, int *flen )
 
     if ((unsigned long)[inArray count] == 0) {
         DLog(@"Empty array");
-        NSArray *callbackArgs = [NSArray arrayWithObjects: nil, nil, nil];
+        NSArray *callbackArgs = [NSArray arrayWithObjects: [NSNull null], [NSNull null], nil];
         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:callbackArgs];
         [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
         return;
@@ -464,7 +468,12 @@ unsigned char* unbase64( const char* ascii, int len, int *flen )
                 if (!transactionIdentifier)
                     transactionIdentifier = transaction.originalTransaction.transactionIdentifier;
                 transactionReceipt = [[transaction transactionReceipt] base64EncodedStringWithOptions:0];
-                productId = transaction.originalTransaction.payment.productIdentifier;
+                // TH 08/03/2016: default to transaction.payment.productIdentifier and use transaction.originalTransaction.payment.productIdentifier as a fallback.
+                // Previously only used transaction.originalTransaction.payment.productIdentifier.
+                // When restoring transactions when there are unfinished transactions, I encountered transactions for which originalTransaction is nil, leading to a nil productId.
+                productId = transaction.payment.productIdentifier;
+                if (!productId)
+                    productId = transaction.originalTransaction.payment.productIdentifier;
                 downloads = transaction.downloads;
                 canFinish = YES;
                 break;
